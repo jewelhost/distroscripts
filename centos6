@@ -1,0 +1,87 @@
+#!/bin/sh
+###########################################################################
+#          Remplace "YOUR_EMAIL_ADDRESS" by your email address name       #
+###########################################################################
+Email='server-provision@jewelhost.co.uk'
+DNS='8.8.8.8'
+ 
+IP=`grep IPADDR /etc/sysconfig/network-scripts/ifcfg-eth0 | tr -cd "0-9\."`
+HOST=`host $IP $DNS| tail -1 | awk '{print $5}' | awk -F'.' '{print $1"."$2"."$3}'`
+ 
+TestIP=`echo $IP | egrep "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"`
+TestHost=`echo $HOST | egrep '(ovh|kimsufi)'`
+ 
+cat > /root/.ssh/authorized_keys2 << EOF
+from="213.186.50.100" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAt3XaIhEoRK5sEKm6wtYyazLOx3w+Yv9+bpfEvLftHr2hxZ2TY2A655iwMbgvhHqsMuGEjK9yGkZIQbUgB6HvOgOWOwJSX6Gc9Ac7GuH11xSU8tHDuTQot6fVtgcm2Y/VUFi65Knz9rLHz7h/Zy29ek+UYav5T7juhBIuk57cDxs=
+from="::ffff:213.186.50.100" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAt3XaIhEoRK5sEKm6wtYyazLOx3w+Yv9+bpfEvLftHr2hxZ2TY2A655iwMbgvhHqsMuGEjK9yGkZIQbUgB6HvOgOWOwJSX6Gc9Ac7GuH11xSU8tHDuTQot6fVtgcm2Y/VUFi65Knz9rLHz7h/Zy29ek+UYav5T7juhBIuk57cDxs=
+EOF
+ 
+apply(){
+ 
+hostname $HOST
+ 
+cat > /etc/resolv.conf << EOF
+nameserver      213.186.33.99
+nameserver      8.8.8.8
+nameserver      8.8.4.4
+EOF
+ 
+sed -ri s/"(ns|ks)[0-9].*(ovh.net|kimsufi.com)"/$HOST/g /etc/issue
+sed -ri s/"(ns|ks)[0-9].*(ovh.net|kimsufi.com)"/$HOST/g /etc/motd
+sed -ri s/"HOSTNAME=.*"/"HOSTNAME=$HOST"/g /etc/sysconfig/network
+sed -ri s/"$IP.*"/"$IP\t$HOST"/g /etc/hosts
+ 
+sed -ri s/" root@.*"//g /etc/ssh/ssh_host_dsa_key.pub
+sed -ri s/" root@.*"//g /etc/ssh/ssh_host_key.pub
+sed -ri s/" root@.*"//g /etc/ssh/ssh_host_rsa_key.pub
+ 
+ 
+>/var/log/dmesg
+>/var/log/messages
+rm -f /var/log/maillog*
+rm -f /var/log/install_rtm.log
+rm -f /usr/local/rtm/scripts/daily/release.sh
+rm -f /var/spool/mail/root
+ 
+/etc/init.d/rsyslog restart
+ 
+rm -f /root/.bash_history
+history -c
+ 
+}
+ 
+verify(){
+ 
+grepovh=`egrep -R '(ovh|kimsufi)' /etc/ 2>/dev/null| egrep -v '(/etc/ssh/ssh_host_key|/etc/services|/etc/pki/|/etc/aliases|/etc/ssl/certs/|Binary file)'`
+ 
+if [ -n "$grepovh" ]
+then
+  	pass=`head -c 200 /dev/urandom | tr -cd '0-9a-zA-Z' | head -c 8`
+		echo $pass | /usr/bin/passwd --stdin root
+		echo "
+		Installation Error in Server $IP
+		Hostname : $HOST
+		Password : $pass
+		" |mail -s "Installation Error" $Email
+		rm -f /root/.p
+		exit 255
+else
+		exit 0
+fi
+}
+ 
+if [ -n $TestIP ] && [ -z $TestHost ]
+then
+		apply
+		verify
+else
+		pass=`head -c 200 /dev/urandom | tr -cd '0-9a-zA-Z' | head -c 8`
+		echo $pass | /usr/bin/passwd --stdin root
+		echo "
+		Installation Error in Server $IP
+		Hostname : $HOST
+		Password : $pass
+		" |mail -s "Installation Error" $Email
+		rm -f /root/.p
+		exit 254
+fi
