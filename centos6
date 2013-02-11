@@ -1,7 +1,5 @@
 #!/bin/sh
-###########################################################################
-#          Remplace "YOUR_EMAIL_ADDRESS" by your email address name       #
-###########################################################################
+
 Email='server-provision@jewelhost.co.uk'
 DNS='8.8.8.8'
  
